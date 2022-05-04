@@ -1,0 +1,26 @@
+{
+    "appId": "991218582249559011",
+    "flippers": {
+      "sdk": "true",
+      "logging": "true",
+      "testMode": "true"
+    },
+    "eventsConfig": {
+      "PURCHASE": {
+        "cap": 1
+      },
+      "event1": {
+        "cap": 5,
+        "updatedName": "changedName"
+      },
+      "event2": {
+        "cap": 10,
+        "updatedName": "meaningfulEvent2"
+      }
+    },
+    "createdAt": "2022-04-20T07:10:52.047Z",
+    "updatedAt": "2022-04-27T03:11:45.955Z",
+    "appIdentifiers": {
+      "branchKey": "key_test_pd3B0foEJoEhcoXaRibB4dkgBtf7WOi8"
+    }
+  }

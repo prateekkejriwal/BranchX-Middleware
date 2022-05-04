@@ -1,0 +1,246 @@
+<html>
+
+<head>
+
+    <title>Branch OTA Configuration POC</title>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js"
+        integrity="sha256-u7e5khyithlIdTpu22PHhENmPcRdFiHRjhAuHcs05RI=" crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+        integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
+        integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+        crossorigin="anonymous"></script>
+
+
+</head>
+
+<body>
+    <div class="container-fluid">
+        <center>
+            <h1>Branch Over The Air Configuration Manager</h1>
+        </center>
+
+        <div class="container-fluid w-50 mt-5 mb-5">
+            <div class="input-group mb-3">
+                <input type="number" class="form-control" placeholder="Application ID" aria-label="Application ID"
+                    aria-describedby="button-addon2" id="appId" />
+                <div class="input-group-append">
+                    <button class="btn btn-outline-secondary" type="button" onclick="fetchConfig()">Fetch
+                        Configuration</button>
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-primary float-right mb-5" onclick="generateConfig()">Save Configuration
+            </button>
+        </div>
+        <div class="container-fluid w-50">
+            <h2>Identifiers </h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Identifiers</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Branch Key</td>
+                        <td>
+                            <input type="text" class="form-control" id="branchKey" name="branchKey"
+                                placeholder="Branch Application Key" onchange="validateBranchKey.apply(this)">
+                        </td>
+                    </tr>
+                </tbody>
+
+            </table>
+            <h2>Flippers </h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Flippers</th>
+                        <th>Enabled?</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>SDK</td>
+                        <td><input type="checkbox" name="flippers" id="sdk"></td>
+                    </tr>
+                    <tr>
+                        <td>Logging</td>
+                        <td><input type="checkbox" name="flippers" id="logging"></td>
+                    </tr>
+                    <tr>
+                        <td>Debug Mode</td>
+                        <td><input type="checkbox" name="flippers" id="testMode"></td>
+                    </tr>
+                </tbody>
+
+            </table>
+            <h2>Events Configuration </h2>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Events</th>
+                        <th>An event should be sent once in X seconds? Use zero to disable event</th>
+                        <th>Updated Name</th>
+                        <th><button type="button" class="btn btn-link" onclick="addNewEvent()">Add Event</button></th>
+                    </tr>
+                </thead>
+                <tbody id='eventsArea'>
+
+                </tbody>
+
+            </table>
+        </div>
+
+
+    </div>
+
+
+    <script>
+
+        function validateBranchKey() {
+            regex = /(key)_((test)|(live))_(\w)+/
+            if (!regex.test(this.value)) {
+                alert("Invalid Branch key")
+            }
+        }
+
+        function reset() {
+            document.getElementsByName('flippers').forEach(x => { x.checked = false })
+            eventsArea.innerHTML = "";
+            document.getElementById("branchKey").value = ""
+
+        }
+        function createEventRow(eventCode = "", eventCap = 0, eventUpdatedName = undefined, newEventFlag = false) {
+            const row = document.createElement('tr')
+            let ec = document.createElement('td')
+            const removeRowTd = document.createElement('td')
+            const removeRow = document.createElement("button")
+            removeRow.classList.add("btn", "btn-link")
+            removeRow.innerHTML = "Remove Event"
+            removeRow.onclick = (event) => { row.remove() }
+            removeRowTd.appendChild(removeRow);
+            const cappingTd = document.createElement('td');
+            const cappingVal = document.createElement('input')
+            const updatedNameTd = document.createElement('td');
+            const updatedNameVal = document.createElement('input');
+            updatedNameVal.eventCode = eventCode
+            updatedNameVal.value = eventUpdatedName ||""
+            updatedNameVal.name = 'eventUpdatedName'
+            updatedNameTd.append(updatedNameVal)
+            cappingVal.type = 'number'
+            cappingVal.name = "eventCapping"
+            cappingVal.eventCode = eventCode
+            cappingVal.value = eventCap
+            if (newEventFlag) {
+                ec = document.createElement('td')
+                const newEvent = document.createElement("input")
+                newEvent.type = 'text'
+                newEvent.onchange = (event) => {
+                    cappingVal.eventCode = event.target.value
+                    updatedNameVal.eventCode = event.target.value
+                }
+                ec.appendChild(newEvent)
+            } else {
+                ec.innerHTML = eventCode
+            }
+            cappingTd.append(cappingVal)
+            row.append(ec, cappingTd,updatedNameTd, removeRowTd)
+            return row;
+
+        }
+        const eventsArea = document.getElementById('eventsArea');
+        let existingConfiguration = false;
+
+        function fetchConfig() {
+            const appId = document.getElementById('appId').value
+
+            getConfFromCloud(appId).then(({ data }) => {
+                reset()
+                const configuration = data;
+                const flippers = data.flippers
+                const appIdentifiers = data.appIdentifiers
+                const eventsConfig = data.eventsConfig
+                document.getElementsByName('flippers').forEach(x => { x.checked = flippers[x.id] === "true" })
+                Object.keys(eventsConfig).forEach(x => {
+                    eventsArea.appendChild(createEventRow(x, eventsConfig[x] ? eventsConfig[x].cap : 0, eventsConfig[x].updatedName))
+                })
+                if (appIdentifiers) {
+                    document.getElementById("branchKey").value = appIdentifiers.branchKey
+                    existingConfiguration = true
+                }
+
+            }).catch(() => {
+                window.alert('Configuration not found')
+            })
+
+        }
+        function generateConfig() {
+
+            const appId = document.getElementById('appId').value
+            const branchKey = document.getElementById('branchKey').value
+            let flippers = {}
+            document.getElementsByName('flippers').forEach(x => { flippers[x.id] = x.checked })
+            let eventsConfig = {}
+            cappings = document.getElementsByName('eventCapping')
+            cappings.forEach(x => { eventsConfig[x.eventCode] = {}; eventsConfig[x.eventCode]['cap'] = parseInt(x.value === "" ? 0 : x.value) })
+            const updatedNames = document.getElementsByName('eventUpdatedName')
+            updatedNames.forEach(x => {
+                if (x.value) {
+                    eventsConfig[x.eventCode] = eventsConfig[x.eventCode] || {};
+                    eventsConfig[x.eventCode]['updatedName'] = x.value
+                }
+            })
+
+            const conf = { appId, appIdentifiers: { branchKey }, eventsConfig, flippers }
+            window.localStorage.setItem('app-' + appId, JSON.stringify(conf))
+            if (existingConfiguration) {
+                putConfToCloud(appId, conf).then(console.log).catch(console.error)
+
+            } else {
+                pushConfToCloud(appId, conf).then(console.log).catch(console.error)
+
+            }
+        }
+
+        function addNewEvent() {
+            eventsArea.appendChild(createEventRow("", 0,"", true))
+        }
+
+        async function pushConfToCloud(appId, config) {
+            const resp = await fetch('/configurations/', {
+                method: "post",
+                body: JSON.stringify(config),
+                headers: { 'content-type': 'application/json' }
+            })
+            const response = await resp.json()
+            return response
+        }
+
+        async function putConfToCloud(appId, config) {
+            const resp = await fetch('/configurations/' + appId, {
+                method: "put",
+                body: JSON.stringify(config),
+                headers: { 'content-type': 'application/json' }
+            })
+            const response = await resp.json()
+            return response
+        }
+
+
+        async function getConfFromCloud(appId) {
+            const resp = await fetch('/configurations/' + appId)
+            const response = await resp.json()
+            return response
+        }
+
+
+    </script>
+</body>
+
+</html>
